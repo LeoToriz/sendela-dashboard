@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sendela Intelligence Hub v7</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- ESTILOS DARK MODE PREMIUM --- */
+        :root {
+            --bg-dark: #020617;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --accent: #10b981;
+        }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg-dark); color: #f1f5f9; background-image: radial-gradient(at 0% 0%, rgba(16,185,129,0.1) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(59,130,246,0.1) 0px, transparent 50%); background-attachment: fixed; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+        /* Glassmorphism Cards */
+        .glass-card {
+            background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+        }
+
+        /* Tabla */
+        .table-container { overflow-x: auto; border-radius: 1rem; border: 1px solid #334155; }
+        table { border-collapse: separate; border-spacing: 0; width: max-content; }
+        th { background: #0f172a; color: #94a3b8; padding: 1rem; font-size: 0.75rem; text-transform: uppercase; position: sticky; top: 0; z-index: 20; border-bottom: 1px solid #334155; }
+        th:first-child, td:first-child { position: sticky; left: 0; z-index: 30; background: #0f172a; border-right: 2px solid #334155; }
+        td { padding: 0.75rem; border-bottom: 1px solid #1e293b; border-right: 1px solid #1e293b; color: #cbd5e1; font-size: 0.85rem; }
+        tr:hover td { background: rgba(59,130,246,0.05); }
+
+        /* Inputs Tabla */
+        .table-input { background: transparent; border: 1px solid transparent; color: inherit; text-align: right; width: 60px; font-family: 'JetBrains Mono', monospace; }
+        .table-input:focus { background: #1e293b; border-color: #3b82f6; outline: none; }
+        .input-editable { color: #fcd34d; font-weight: 700; }
+
+        /* Botones */
+        .btn-primary { background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; transition: all 0.2s; box-shadow: 0 4px 12px rgba(16,185,129,0.3); }
+        .btn-primary:hover { transform: translateY(-1px); filter: brightness(1.1); }
+        .btn-secondary { background: transparent; border: 1px solid #475569; color: #94a3b8; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: all 0.2s; }
+        .btn-secondary:hover { border-color: white; color: white; }
+        .btn-danger { background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 0.25rem 0.75rem; border-radius: 0.5rem; font-size: 0.75rem; transition: all 0.2s; }
+        .btn-danger:hover { background: #ef4444; color: white; }
+
+        /* Mapa Dark */
+        .leaflet-layer { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+        
+        /* Tabs */
+        .tab-btn { padding: 0.75rem 1.5rem; color: #64748b; font-weight: 600; border-bottom: 2px solid transparent; cursor: pointer; }
+        .tab-btn.active { color: #38bdf8; border-bottom-color: #38bdf8; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="p-4 md:p-8 pb-20">
+
+    <!-- HEADER -->
+    <header class="flex flex-col xl:flex-row justify-between items-center mb-8 gap-6 border-b border-slate-800/50 pb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-white">Sendela <span class="text-emerald-400">Intelligence Hub</span></h1>
+            <p class="text-slate-400 text-sm">v7.0 Master | Gestión Total</p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="generateExecutiveSummary()" class="btn-primary flex items-center gap-2">📊 Generar Resumen</button>
+            <button onclick="exportFullHTML()" class="btn-secondary flex items-center gap-2">💾 Guardar Todo</button>
+            <button onclick="exportToCSV()" class="btn-secondary flex items-center gap-2">📈 Excel</button>
+        </div>
+    </header>
+
+    <!-- KPI GRID -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div class="glass-card p-5 border-l-4 border-emerald-500">
+            <h3 class="text-slate-400 text-xs font-bold uppercase">Margen Promedio</h3>
+            <p class="text-2xl font-bold text-white mt-1" id="kpi-margin">0%</p>
+        </div>
+        <div class="glass-card p-5 border-l-4 border-blue-500">
+            <h3 class="text-slate-400 text-xs font-bold uppercase">Precio Mercado</h3>
+            <p class="text-2xl font-bold text-white mt-1" id="kpi-market-avg">$0</p>
+        </div>
+        <div class="glass-card p-5 border-l-4 border-purple-500">
+            <h3 class="text-slate-400 text-xs font-bold uppercase">Brecha Competitiva</h3>
+            <p class="text-2xl font-bold text-white mt-1" id="kpi-gap">0%</p>
+        </div>
+        <div class="glass-card p-5 border-l-4 border-yellow-500">
+            <h3 class="text-slate-400 text-xs font-bold uppercase">Oportunidad (Barato)</h3>
+            <p class="text-2xl font-bold text-yellow-400 mt-1" id="kpi-cheaper">0%</p>
+        </div>
+        <div class="glass-card p-5 border-l-4 border-red-500">
+            <h3 class="text-slate-400 text-xs font-bold uppercase">Riesgo (Caro)</h3>
+            <p class="text-2xl font-bold text-red-400 mt-1" id="kpi-alerts">0</p>
+        </div>
+    </div>
+
+    <!-- SECCIÓN RESUMEN EJECUTIVO (Popup) -->
+    <div id="summary-section" class="glass-card p-6 mb-8 hidden border border-emerald-500/50">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">📊 Resumen Estratégico (Bebidas por ML)</h2>
+            <button onclick="document.getElementById('summary-section').classList.add('hidden')" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+        </div>
+        <p class="text-sm text-slate-400 mb-4">Comparativa normalizada por mililitro para detectar oportunidades reales frente a la competencia.</p>
+        <div class="overflow-x-auto max-h-96 rounded border border-slate-700">
+            <table class="w-full" id="summary-table"></table>
+        </div>
+    </div>
+
+    <!-- NAVEGACIÓN -->
+    <div class="flex border-b border-slate-800 mb-6 overflow-x-auto gap-4">
+        <button class="tab-btn active" onclick="switchTab('tab-matrix')">📋 Matriz de Datos</button>
+        <button class="tab-btn" onclick="switchTab('tab-opps')">⚡ Ranking Oportunidad</button>
+        <button class="tab-btn" onclick="switchTab('tab-charts')">📊 Gráficos Estratégicos</button>
+        <button class="tab-btn" onclick="switchTab('tab-map')">🗺️ Mapa Competencia</button>
+        <button class="tab-btn" onclick="switchTab('tab-sim')">📦 Simulador</button>
+    </div>
+
+    <!-- 1. MATRIZ -->
+    <div id="tab-matrix" class="tab-content active">
+        <div class="glass-card p-1">
+            <div class="table-container max-h-[650px]">
+                <table id="mainTable">
+                    <thead>
+                        <tr>
+                            <th rowspan="2" class="min-w-[200px] cursor-pointer hover:text-white" onclick="sortData('name')">Producto ⇅</th>
+                            <th colspan="5" class="text-center text-emerald-400 bg-emerald-900/10">SENDELA</th>
+                            <th colspan="4" class="text-center text-slate-300">STARBUCKS</th>
+                            <th colspan="4" class="text-center text-slate-300">TOMORROW</th>
+                            <th colspan="4" class="text-center text-slate-300">SOUL VALI</th>
+                            <th colspan="4" class="text-center text-slate-300">OXXO</th>
+                        </tr>
+                        <tr>
+                            <th class="text-center cursor-pointer" onclick="sortData('cost')">Costo</th>
+                            <th class="text-center cursor-pointer" onclick="sortData('price')">Precio</th>
+                            <th class="text-center cursor-pointer" onclick="sortData('margin')">Margen</th>
+                            <th class="text-center">Tam.</th>
+                            <th class="text-center">PPU</th>
+                            <!-- Competidores -->
+                            <th class="text-center text-xs">$$</th> <th class="text-center text-xs">Oz</th> <th class="text-center text-xs">$/U</th> <th class="text-center text-xs text-blue-400">Hip.</th>
+                            <th class="text-center text-xs">$$</th> <th class="text-center text-xs">Oz</th> <th class="text-center text-xs">$/U</th> <th class="text-center text-xs text-blue-400">Hip.</th>
+                            <th class="text-center text-xs">$$</th> <th class="text-center text-xs">Oz</th> <th class="text-center text-xs">$/U</th> <th class="text-center text-xs text-blue-400">Hip.</th>
+                            <th class="text-center text-xs">$$</th> <th class="text-center text-xs">Oz</th> <th class="text-center text-xs">$/U</th> <th class="text-center text-xs text-blue-400">Hip.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. OPORTUNIDADES -->
+    <div id="tab-opps" class="tab-content hidden">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+            <div class="glass-card flex flex-col h-full border-t-4 border-emerald-500">
+                <div class="p-6 border-b border-slate-700">
+                    <h2 class="text-xl font-bold text-white">🔥 Oportunidades de Subida</h2>
+                    <p class="text-sm text-slate-400">Estás >15% más barato que el mercado. ¡Sube precios!</p>
+                </div>
+                <div class="p-6 overflow-y-auto"><ul id="opps-cheap-list" class="space-y-3"></ul></div>
+            </div>
+            <div class="glass-card flex flex-col h-full border-t-4 border-red-500">
+                <div class="p-6 border-b border-slate-700">
+                    <h2 class="text-xl font-bold text-white">❄️ Riesgo de Precio</h2>
+                    <p class="text-sm text-slate-400">Estás >15% más caro que el mercado. Cuidado.</p>
+                </div>
+                <div class="p-6 overflow-y-auto"><ul id="opps-expensive-list" class="space-y-3"></ul></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. GRÁFICOS -->
+    <div id="tab-charts" class="tab-content hidden">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="glass-card p-6"><h3 class="text-center font-bold text-xs uppercase mb-4">Comparativa Precios (Top 10)</h3><div class="h-60"><canvas id="priceChart"></canvas></div></div>
+            <div class="glass-card p-6"><h3 class="text-center font-bold text-xs uppercase mb-4">Mix de Categorías</h3><div class="h-60 flex justify-center"><canvas id="categoryChart"></canvas></div></div>
+            <div class="glass-card p-6"><h3 class="text-center font-bold text-xs uppercase mb-4">Radar Competitivo</h3><div class="h-60"><canvas id="radarChart"></canvas></div></div>
+            <div class="glass-card p-6"><h3 class="text-center font-bold text-xs uppercase mb-4">Matriz Costo vs Precio</h3><div class="h-60"><canvas id="scatterChart"></canvas></div></div>
+            <div class="glass-card p-6"><h3 class="text-center font-bold text-xs uppercase mb-4">Top 10 Utilidad ($)</h3><div class="h-60"><canvas id="profitChart"></canvas></div></div>
+            <div class="glass-card p-6"><h3 class="text-center font-bold text-xs uppercase mb-4">Salud del Margen</h3><div class="h-60 flex justify-center"><canvas id="marginDistChart"></canvas></div></div>
+        </div>
+    </div>
+
+    <!-- 4. MAPA -->
+    <div id="tab-map" class="tab-content hidden">
+        <div class="glass-card p-1 h-[600px] flex flex-col">
+            <div class="p-4 flex justify-between"><h2 class="font-bold text-white">Mapa Competitivo</h2></div>
+            <div id="map" class="flex-1 rounded-b-lg"></div>
+        </div>
+    </div>
+
+    <!-- 5. SIMULADOR -->
+    <div id="tab-sim" class="tab-content hidden">
+        <div class="glass-card p-8 max-w-4xl mx-auto">
+            <h2 class="text-2xl font-bold text-white mb-8 text-center">📦 Constructor de Paquetes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="space-y-4">
+                    <div><label class="text-xs text-slate-400">Producto 1</label><select id="sim-p1" class="w-full mt-1 bg-slate-800 p-2 rounded text-white border border-slate-600"></select></div>
+                    <div><label class="text-xs text-slate-400">Producto 2</label><select id="sim-p2" class="w-full mt-1 bg-slate-800 p-2 rounded text-white border border-slate-600"></select></div>
+                    <div><label class="text-xs text-slate-400">Precio Combo</label><input type="number" id="sim-price" class="w-full mt-1 bg-slate-800 p-2 rounded text-white border border-slate-600 font-bold" placeholder="0.00"></div>
+                    <div class="flex gap-2 mt-4">
+                        <button onclick="calculatePackage()" class="btn-primary flex-1">Calcular</button>
+                        <button onclick="savePackage()" class="btn-secondary flex-1">Guardar</button>
+                    </div>
+                </div>
+                <div class="md:col-span-2 flex flex-col gap-6">
+                    <div class="bg-white text-slate-900 p-6 rounded shadow-2xl font-mono text-sm" id="ticket-container">
+                        <h3 class="text-center border-b border-dashed border-slate-400 pb-2 mb-4 font-bold">TICKET SIMULADO</h3>
+                        <div class="flex justify-between"><span id="res-p1-name">-</span><span id="res-p1-cost">$-</span></div>
+                        <div class="flex justify-between"><span id="res-p2-name">-</span><span id="res-p2-cost">$-</span></div>
+                        <div class="border-t border-slate-400 my-2"></div>
+                        <div class="flex justify-between font-bold"><span>COSTO TOTAL</span><span id="res-cost-total">$-</span></div>
+                        <div class="mt-2 pt-2 border-t border-dashed border-slate-300 flex justify-between"><span>PRECIO REGULAR</span><span id="res-reg-price" class="line-through">$-</span></div>
+                    </div>
+                    <div class="glass-card p-4 text-center border border-emerald-500/30 bg-emerald-900/10">
+                        <p class="text-xs text-emerald-300 uppercase">Utilidad Neta</p>
+                        <p id="res-utility" class="text-4xl font-black text-white">$0.00</p>
+                        <p id="res-margin" class="text-sm text-emerald-400 mt-1">0% Margen</p>
+                        <p id="res-savings" class="text-xs text-slate-400 mt-2">Ahorro: 0%</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Paquetes Guardados -->
+            <div class="mt-8 pt-6 border-t border-slate-700">
+                <h3 class="text-white font-bold mb-4">Paquetes Guardados</h3>
+                <ul id="saved-packages-list" class="space-y-2"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATOS CARGADOS (JSON COMPLETO 49 PRODUCTOS) ---
+        let productData = [{"id":"acai_bowl","name":"Acai bowl","cost":84.49,"price":140,"size":1,"unit":"u","category":"Bowls/Oats","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":190,"size":1},"oxxo":{},"ambulante":{}}},{"id":"americano_16","name":"Americano 16 oz","cost":13.82,"price":45,"size":16,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{},"tomorrow":{"price":50,"size":16},"soulvali":{"price":55,"size":10},"oxxo":{"price":33,"size":12},"ambulante":{}}},{"id":"apple_cinnamon_oats","name":"Apple cinnamon (oats)","cost":26,"price":55,"size":1,"unit":"u","category":"Bowls/Oats","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{},"oxxo":{},"ambulante":{}}},{"id":"berries_bowl","name":"Berries bowl","cost":72.81,"price":140,"size":1,"unit":"u","category":"Bowls/Oats","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":160,"size":1},"oxxo":{},"ambulante":{}}},{"id":"blueberry_granola_oats","name":"Blueberry granola yogurt (oats)","cost":37.79,"price":65,"size":1,"unit":"u","category":"Bowls/Oats","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":110,"size":1},"oxxo":{},"ambulante":{}}},{"id":"capuccino_12","name":"Capuchino 12 oz","cost":16.43,"price":55,"size":12,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":64,"size":10},"tomorrow":{"price":60,"size":12},"soulvali":{"price":60,"size":10},"oxxo":{"price":43,"size":12},"ambulante":{}}},{"id":"capuccino_16","name":"Capuchino 16 oz","cost":22.09,"price":65,"size":16,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":82,"size":16},"tomorrow":{"price":65,"size":20},"soulvali":{"price":90,"size":20},"oxxo":{"price":50,"size":20},"ambulante":{}}},{"id":"capuccino_frio_12","name":"Capuchino frío 12 oz","cost":15.22,"price":55,"size":12,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{"price":69,"size":10},"tomorrow":{"price":0,"size":0},"soulvali":{"price":60,"size":10},"oxxo":{"price":47,"size":12},"ambulante":{}}},{"id":"chai_12","name":"Chai latte 12 oz","cost":22.74,"price":65,"size":12,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":69,"size":10},"tomorrow":{"price":80,"size":12},"soulvali":{"price":70,"size":10},"oxxo":{"price":45,"size":12},"ambulante":{}}},{"id":"chai_16","name":"Chai latte 16 oz","cost":29.68,"price":70,"size":16,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":87,"size":16},"tomorrow":{"price":0,"size":0},"soulvali":{"price":100,"size":20},"oxxo":{"price":50,"size":20},"ambulante":{}}},{"id":"chai_frio_12","name":"Chai latte frío 12 oz","cost":20.92,"price":65,"size":12,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{"price":69,"size":10},"tomorrow":{"price":0,"size":0},"soulvali":{"price":0},"oxxo":{"price":50,"size":12},"ambulante":{}}},{"id":"chai_frio_16","name":"Chai latte frío 16 oz","cost":26.55,"price":70,"size":16,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{"price":87,"size":16},"tomorrow":{"price":90,"size":20},"soulvali":{"price":90,"size":20},"oxxo":{"price":60,"size":20},"ambulante":{}}},{"id":"chocolate_12","name":"Chocolate mexicano 12 oz","cost":24.43,"price":65,"size":12,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":72,"size":10},"tomorrow":{"price":75,"size":12},"soulvali":{"price":70,"size":10},"oxxo":{"price":52,"size":12},"ambulante":{}}},{"id":"chocolate_16","name":"Chocolate mexicano 16 oz","cost":29.64,"price":70,"size":16,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":89,"size":16},"tomorrow":{},"soulvali":{"price":100,"size":20},"oxxo":{"price":62,"size":20},"ambulante":{}}},{"id":"americano_12","name":"Espresso americano 12 oz","cost":10.26,"price":40,"size":12,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":40,"size":12},"tomorrow":{"price":60},"soulvali":{"price":0},"oxxo":{"price":26},"ambulante":{}}},{"id":"espresso_doble","name":"Espresso doble 4 oz","cost":8.19,"price":39,"size":4,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":54,"size":4},"tomorrow":{"price":0},"soulvali":{"price":35,"size":2},"oxxo":{"price":29,"size":4},"ambulante":{}}},{"id":"jugo_green_boost","name":"Jugo Green boost","cost":21.01,"price":65,"size":16,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":70,"size":20},"oxxo":{},"ambulante":{}}},{"id":"jugo_healer","name":"Jugo Healer","cost":25.26,"price":65,"size":16,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":55,"size":10},"oxxo":{},"ambulante":{}}},{"id":"jugo_refresher","name":"Jugo Refresher","cost":25.68,"price":65,"size":16,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":55,"size":10},"oxxo":{},"ambulante":{}}},{"id":"jugo_tropi_beach","name":"Jugo Tropi-beach","cost":35.86,"price":65,"size":16,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":55,"size":10},"oxxo":{},"ambulante":{}}},{"id":"jugo_upbeet","name":"Jugo Upbeet","cost":30.44,"price":65,"size":16,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":70,"size":20},"oxxo":{},"ambulante":{}}},{"id":"latte_12","name":"Latte 12 oz","cost":13.98,"price":55,"size":12,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":64,"size":10},"tomorrow":{"price":65,"size":12},"soulvali":{"price":60,"size":10},"oxxo":{"price":43,"size":12},"ambulante":{}}},{"id":"latte_16","name":"Latte 16 oz","cost":19.42,"price":65,"size":16,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":74,"size":16},"tomorrow":{"price":0},"soulvali":{"price":90,"size":20},"oxxo":{"price":50,"size":20},"ambulante":{}}},{"id":"latte_frio_12","name":"Latte frío 12 oz","cost":12.17,"price":55,"size":12,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{"price":64,"size":10},"tomorrow":{"price":0},"soulvali":{"price":60,"size":10},"oxxo":{},"ambulante":{}}},{"id":"latte_frio_16","name":"Latte frío 16 oz","cost":20.81,"price":65,"size":16,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{"price":74,"size":16},"tomorrow":{"price":70,"size":20},"soulvali":{"price":90,"size":20},"oxxo":{},"ambulante":{}}},{"id":"matcha_frio_12","name":"Matcha frío 12 oz","cost":11.99,"price":59,"size":12,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{"price":69,"size":10},"tomorrow":{"price":80,"size":12},"soulvali":{"price":45,"size":10},"oxxo":{},"ambulante":{}}},{"id":"matcha_frio_16","name":"Matcha frío 16 oz","cost":15.62,"price":70,"size":16,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{"price":87,"size":16},"tomorrow":{"price":90},"soulvali":{"price":75,"size":20},"oxxo":{},"ambulante":{}}},{"id":"matcha_12","name":"Matcha latte 12 oz","cost":13.81,"price":59,"size":12,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":69,"size":10},"tomorrow":{"price":80,"size":12},"soulvali":{"price":80,"size":10},"oxxo":{"price":50,"size":12},"ambulante":{}}},{"id":"matcha_16","name":"Matcha latte 16 oz","cost":15.92,"price":70,"size":16,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":87,"size":16},"tomorrow":{"price":0},"soulvali":{"price":110,"size":20},"oxxo":{"price":55,"size":20},"ambulante":{}}},{"id":"mediterranean_bowl","name":"Mediterranean bowl","cost":47.54,"price":130,"size":1,"unit":"u","category":"Bowls/Oats","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":0},"oxxo":{},"ambulante":{}}},{"id":"moka_12","name":"Moka 12 oz","cost":23.71,"price":65,"size":12,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":77,"size":10},"tomorrow":{},"soulvali":{"price":70,"size":10},"oxxo":{"price":47,"size":12},"ambulante":{}}},{"id":"moka_16","name":"Moka 16 oz","cost":30.4,"price":70,"size":16,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{"price":94,"size":16},"tomorrow":{},"soulvali":{"price":100,"size":20},"oxxo":{"price":57,"size":20},"ambulante":{}}},{"id":"moka_frio_12","name":"Moka frío 12 oz","cost":21.89,"price":65,"size":12,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{"price":77,"size":10},"tomorrow":{},"soulvali":{"price":70,"size":10},"oxxo":{"price":50,"size":12},"ambulante":{}}},{"id":"moka_frio_16","name":"Moka frío 16 oz","cost":27.47,"price":70,"size":16,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{"price":94,"size":16},"tomorrow":{},"soulvali":{"price":100,"size":20},"oxxo":{"price":60,"size":20},"ambulante":{}}},{"id":"peanut_butter_oats","name":"Peanut butter (oats)","cost":28.39,"price":55,"size":1,"unit":"u","category":"Bowls/Oats","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":0},"oxxo":{},"ambulante":{}}},{"id":"sandwich_pierna","name":"Sandwich de jamón de pierna","cost":30.62,"price":60,"size":1,"unit":"u","category":"Comida","competitors":{"starbucks":{"price":82,"size":1},"tomorrow":{},"soulvali":{"price":128,"size":1},"oxxo":{"price":45,"size":1},"ambulante":{}}},{"id":"sandwich_pavo","name":"Sandwich de Jamón Pavo","cost":32,"price":65,"size":1,"unit":"u","category":"Comida","competitors":{"starbucks":{"price":82,"size":1},"tomorrow":{},"soulvali":{"price":148,"size":1},"oxxo":{"price":45,"size":1},"ambulante":{}}},{"id":"sandwich_pollo","name":"Sandwich de pollo","cost":36.5,"price":70,"size":1,"unit":"u","category":"Comida","competitors":{"starbucks":{"price":82,"size":1},"tomorrow":{},"soulvali":{},"oxxo":{},"ambulante":{}}},{"id":"smoothie_berries_12","name":"Smoothie Berries 12 oz","cost":45.67,"price":65,"size":12,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":0,"size":0},"oxxo":{},"ambulante":{}}},{"id":"smoothie_coco_beach_12","name":"Smoothie Coco Beach 12 oz","cost":30.06,"price":65,"size":12,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":80,"size":20},"oxxo":{},"ambulante":{}}},{"id":"smoothie_monkey_business_12","name":"Smoothie Monkey business 12 oz","cost":32.05,"price":65,"size":12,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":0},"oxxo":{},"ambulante":{}}},{"id":"taro_frio_12","name":"Taro frío 12 oz","cost":31.73,"price":65,"size":12,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":0},"oxxo":{},"ambulante":{}}},{"id":"taro_frio_16","name":"Taro frío 16 oz","cost":24.13,"price":70,"size":16,"unit":"oz","category":"Bebidas Frías","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":0},"oxxo":{},"ambulante":{}}},{"id":"taro_12","name":"Taro latte 12 oz","cost":33.55,"price":65,"size":12,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":0},"oxxo":{},"ambulante":{}}},{"id":"taro_16","name":"Taro latte 16 oz","cost":40.59,"price":70,"size":16,"unit":"oz","category":"Bebidas Calientes","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":0},"oxxo":{},"ambulante":{}}},{"id":"vaso_fruta_yogurt","name":"Vaso de fruta con yogurt","cost":46.46,"price":65,"size":1,"unit":"u","category":"Comida","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":0},"oxxo":{},"ambulante":{}}},{"id":"vital_bowl","name":"Vital bowl","cost":55.73,"price":130,"size":1,"unit":"u","category":"Bowls/Oats","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":0},"oxxo":{},"ambulante":{}}},{"id":"waffles_frutos_rojos","name":"Waffles con frutos rojos","cost":55.7,"price":85,"size":1,"unit":"u","category":"Comida","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":0},"oxxo":{},"ambulante":{}}},{"id":"waffles_platano","name":"Waffles con plátano","cost":57.98,"price":85,"size":1,"unit":"u","category":"Comida","competitors":{"starbucks":{},"tomorrow":{},"soulvali":{"price":0},"oxxo":{},"ambulante":{}}}];
+
+        const COMPETITORS = ['starbucks', 'tomorrow', 'soulvali', 'oxxo', 'ambulante'];
+        const OZ_TO_ML = 29.5735;
+        const PACKAGES_KEY = 'sendelaPackagesV7'; // Nueva key para paquetes
+        let currentSort = { col: 'name', asc: true };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedData = localStorage.getItem('sendelaDataFinalV6');
+            if(savedData) productData = JSON.parse(savedData);
+
+            renderTable();
+            calculateStrategicKPIs();
+            window.map = L.map('map').setView([19.032, -98.232], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(window.map);
+            addMapMarkers();
+            renderCharts();
+            initSimulator();
+            renderSavedPackages(); // Cargar paquetes guardados
+            switchTab('tab-matrix');
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.remove('hidden');
+            const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+            if (btn) btn.classList.add('active');
+            if(tabId === 'tab-map' && window.map) setTimeout(() => window.map.invalidateSize(), 200);
+        }
+
+        // --- LÓGICA DE TABLA Y EDICIÓN EN VIVO ---
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            productData.sort((a,b) => {
+                let valA = a[currentSort.col], valB = b[currentSort.col];
+                if(currentSort.col === 'margin') { valA = (a.price-a.cost)/a.price; valB = (b.price-b.cost)/b.price; }
+                return (valA < valB ? -1 : 1) * (currentSort.asc ? 1 : -1);
+            });
+
+            productData.forEach(p => {
+                const margin = p.price > 0 ? ((p.price - p.cost)/p.price)*100 : 0;
+                const marginClass = margin < 40 ? 'text-red-400' : (margin > 60 ? 'text-emerald-400' : 'text-yellow-400');
+                let myPPU = p.price / (p.unit==='oz' ? p.size*OZ_TO_ML : p.size);
+                
+                let html = `<tr><td class="font-bold text-white bg-slate-900/90 sticky left-0 border-r border-slate-700">${p.name}</td>
+                    <td class="text-center"><input class="table-input text-emerald-400 font-bold" value="${p.cost}" onchange="updateVal('${p.id}','cost',this.value, this)"></td>
+                    <td class="text-center"><input class="table-input text-white font-bold" value="${p.price}" onchange="updateVal('${p.id}','price',this.value, this)"></td>
+                    <td class="text-center ${marginClass} font-mono cell-margin">${margin.toFixed(0)}%</td>
+                    <td class="text-center text-xs text-slate-500">${p.size} ${p.unit}</td>
+                    <td class="text-center text-xs font-mono text-slate-400">$${myPPU.toFixed(2)}</td>`; // Columna IA removida
+
+                COMPETITORS.forEach(c => {
+                    const cd = p.competitors[c] || {};
+                    let hypo='-', ppu='-';
+                    if(cd.price>0 && cd.size>0) {
+                        const cPPU = cd.price / (p.unit==='oz' ? cd.size*OZ_TO_ML : cd.size);
+                        ppu = `$${cPPU.toFixed(2)}`;
+                        const hVal = cPPU * (p.unit==='oz' ? p.size*OZ_TO_ML : p.size);
+                        const diff = p.price - hVal;
+                        hypo = `<span class="${diff<0?'text-emerald-400':'text-red-400'} font-bold">$${hVal.toFixed(0)}</span>`;
+                    }
+                    html += `<td class="text-center border-l border-slate-700"><input class="table-input text-slate-400" value="${cd.price||''}" placeholder="-" onchange="updateComp('${p.id}','${c}','price',this.value)"></td>
+                             <td class="text-center"><input class="table-input text-slate-600 text-xs" style="width:30px" value="${cd.size||''}" placeholder="-" onchange="updateComp('${p.id}','${c}','size',this.value)"></td>
+                             <td class="text-center text-xs text-slate-600 font-mono">${ppu}</td><td class="text-center text-xs">${hypo}</td>`;
+                });
+                tbody.insertAdjacentHTML('beforeend', html + '</tr>');
+            });
+        }
+
+        function updateVal(id, f, v, inputEl) { 
+            const p=productData.find(x=>x.id===id); 
+            if(p){
+                p[f]=parseFloat(v)||0; 
+                // Actualizar margen visualmente en la misma fila sin recargar toda la tabla
+                const row = inputEl.closest('tr');
+                const marginCell = row.querySelector('.cell-margin');
+                if(marginCell) {
+                    const m = p.price > 0 ? ((p.price - p.cost)/p.price)*100 : 0;
+                    marginCell.innerText = m.toFixed(0) + '%';
+                    marginCell.className = `text-center font-mono cell-margin ${m<40?'text-red-400':(m>60?'text-emerald-400':'text-yellow-400')}`;
+                }
+                saveData(); 
+            } 
+        }
+        
+        function updateComp(id, c, f, v) { const p=productData.find(x=>x.id===id); if(p){if(!p.competitors[c])p.competitors[c]={}; p.competitors[c][f]=parseFloat(v)||0; saveData();} }
+        function sortData(c) { currentSort.col=c; currentSort.asc=!currentSort.asc; renderTable(); }
+        function saveData() { localStorage.setItem('sendelaDataFinalV6', JSON.stringify(productData)); calculateStrategicKPIs(); }
+
+        // --- KPIs ---
+        function calculateStrategicKPIs() {
+            let tMargin=0, tCount=0, alerts=0, cheapCnt=0;
+            let mktSum=0, mktCnt=0;
+            const cheapL = document.getElementById('opps-cheap-list'), expL = document.getElementById('opps-expensive-list');
+            cheapL.innerHTML=''; expL.innerHTML='';
+
+            productData.forEach(p => {
+                tCount++;
+                const m = p.price>0 ? (p.price-p.cost)/p.price : 0;
+                tMargin += m;
+                if(m<0.4) alerts++;
+
+                let pMktSum=0, pMktCnt=0;
+                COMPETITORS.forEach(c => {
+                    const cd = p.competitors[c];
+                    if(cd && cd.price>0 && cd.size>0) {
+                        const cPPU = cd.price / (p.unit==='oz' ? cd.size*OZ_TO_ML : cd.size);
+                        pMktSum += cPPU * (p.unit==='oz' ? p.size*OZ_TO_ML : p.size);
+                        pMktCnt++;
+                    }
+                });
+
+                if(pMktCnt>0) {
+                    const avgMkt = pMktSum/pMktCnt;
+                    mktSum += avgMkt; mktCnt++;
+                    const diff = (p.price - avgMkt)/avgMkt;
+                    
+                    const item = `<li class="bg-slate-800/50 p-3 rounded border-l-4 ${diff<-0.15?'border-emerald-500':'border-red-500'} flex justify-between">
+                        <div><div class="font-bold text-white">${p.name}</div><div class="text-xs text-slate-400">${(Math.abs(diff)*100).toFixed(0)}% ${diff<0?'más barato':'más caro'}</div></div>
+                        <div class="text-right"><div class="text-xs text-slate-500">Mkt: $${avgMkt.toFixed(0)}</div><div class="font-bold text-white">$${p.price}</div></div></li>`;
+                    
+                    if(diff < -0.15) { cheapCnt++; cheapL.innerHTML += item; }
+                    else if(diff > 0.15) { expL.innerHTML += item; }
+                }
+            });
+
+            document.getElementById('kpi-margin').innerText = (tCount>0 ? (tMargin/tCount)*100 : 0).toFixed(1) + '%';
+            document.getElementById('kpi-market-avg').innerText = '$' + (mktCnt>0 ? (mktSum/mktCnt).toFixed(0) : 0);
+            document.getElementById('kpi-cheaper').innerText = (tCount>0 ? (cheapCnt/tCount)*100 : 0).toFixed(0) + '%';
+            document.getElementById('kpi-alerts').innerText = alerts;
+        }
+
+        // --- RESUMEN ---
+        function generateExecutiveSummary() {
+            const sect = document.getElementById('summary-section');
+            const tbl = document.getElementById('summary-table');
+            sect.classList.remove('hidden');
+            let h = `<thead><tr class="text-left text-slate-400 text-xs uppercase border-b border-slate-700"><th class="p-3">Bebida</th><th class="p-3 text-right">$/ML</th><th class="p-3 text-right">vs Mkt</th><th class="p-3 text-center">Estado</th></tr></thead><tbody>`;
+            productData.filter(p => p.unit==='oz' && p.price>0).forEach(p => {
+                const myPPU = p.price / (p.size*OZ_TO_ML);
+                let cSum=0, cCnt=0;
+                COMPETITORS.forEach(c => { 
+                    const cd = p.competitors[c];
+                    if(cd && cd.price>0 && cd.size>0) { cSum += cd.price/(cd.size*OZ_TO_ML); cCnt++; }
+                });
+                if(cCnt>0) {
+                    const avg = cSum/cCnt;
+                    const diff = ((myPPU - avg)/avg)*100;
+                    h += `<tr class="border-b border-slate-800/50 hover:bg-slate-800/30"><td class="p-3 text-white font-medium">${p.name}</td><td class="p-3 text-right font-mono text-slate-400">$${myPPU.toFixed(3)}</td><td class="p-3 text-right font-bold ${diff<0?'text-emerald-400':'text-red-400'}">${diff>0?'+':''}${diff.toFixed(1)}%</td><td class="p-3 text-center"><span class="px-2 py-1 rounded text-xs font-bold ${diff<0?'bg-emerald-500/20 text-emerald-300':'bg-red-500/20 text-red-300'}">${diff<0?'LÍDER':'PREMIUM'}</span></td></tr>`;
+                }
+            });
+            tbl.innerHTML = h + '</tbody>';
+        }
+
+        function renderCharts() {
+            Chart.defaults.color = '#94a3b8'; Chart.defaults.borderColor = '#334155';
+            const top10 = productData.slice(0,10);
+            new Chart(document.getElementById('priceChart'), { type: 'bar', data: { labels: top10.map(p=>p.name), datasets: [{label:'Tú', data:top10.map(p=>p.price), backgroundColor:'#10b981'}, {label:'Sbx', data:top10.map(p=>p.competitors.starbucks?.price||0), backgroundColor:'#ef4444'}] }, options: {plugins:{legend:{display:false}}} });
+
+            const cats = {}; productData.forEach(p => cats[p.category] = (cats[p.category]||0)+1);
+            new Chart(document.getElementById('categoryChart'), { type: 'doughnut', data: { labels: Object.keys(cats), datasets: [{ data: Object.values(cats), backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6'], borderWidth:0 }] }, options:{plugins:{legend:{position:'right',labels:{color:'#fff'}}}, cutout:'70%'} });
+
+            const radarLabels = Object.keys(cats);
+            const myRadar = radarLabels.map(c => { const ps = productData.filter(x=>x.category===c); return ps.reduce((a,b)=>a+b.price,0)/ps.length; });
+            new Chart(document.getElementById('radarChart'), { type: 'radar', data: { labels: radarLabels, datasets: [{label:'Precio Promedio', data: myRadar, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,0.2)'}] } });
+            
+            new Chart(document.getElementById('scatterChart'), { type: 'scatter', data: { datasets: [{ label: 'Productos', data: productData.map(p=>({x:p.cost, y:p.price})), backgroundColor: productData.map(p=>((p.price-p.cost)/p.price)>0.6?'#10b981':'#ef4444') }] }, options: { scales: {x:{title:{display:true,text:'Costo'}}, y:{title:{display:true,text:'Precio'}}} } });
+            
+            const profit = [...productData].sort((a,b)=>(b.price-b.cost)-(a.price-a.cost)).slice(0,10);
+            new Chart(document.getElementById('profitChart'), { type: 'bar', data: { labels: profit.map(p=>p.name), datasets: [{label:'Utilidad $', data:profit.map(p=>p.price-p.cost), backgroundColor:'#f59e0b', indexAxis:'y'}] }, options: {indexAxis:'y', plugins:{legend:{display:false}}} });
+
+            let mLow=0, mMid=0, mHigh=0; productData.forEach(p=>{const m=(p.price-p.cost)/p.price; if(m<0.4)mLow++; else if(m<0.6)mMid++; else mHigh++;});
+            new Chart(document.getElementById('marginDistChart'), { type: 'doughnut', data: { labels: ['<40%', '40-60%', '>60%'], datasets: [{ data: [mLow,mMid,mHigh], backgroundColor:['#ef4444','#f59e0b','#10b981'], borderWidth:0 }] }, options:{cutout:'70%'} });
+        }
+
+        function addMapMarkers() {
+            const icons = {
+                sbx: L.divIcon({className: 'bg-green-600 w-3 h-3 rounded-full border border-white'}),
+                soul: L.divIcon({className: 'bg-purple-600 w-3 h-3 rounded-full border border-white'}),
+                oxxo: L.divIcon({className: 'bg-red-600 w-3 h-3 rounded-full border border-white'}),
+                me: L.divIcon({className: 'bg-blue-500 w-4 h-4 rounded-full border-2 border-white shadow-lg animate-pulse'})
+            };
+            L.marker([19.032, -98.232], {icon: icons.me}).addTo(window.map).bindPopup("<b>Sendela</b>");
+            L.marker([19.036, -98.228], {icon: icons.sbx}).addTo(window.map).bindPopup("Starbucks");
+            L.marker([19.029, -98.235], {icon: icons.soul}).addTo(window.map).bindPopup("Soul Vali");
+            L.marker([19.035, -98.238], {icon: icons.oxxo}).addTo(window.map).bindPopup("Oxxo");
+        }
+
+        // --- SIMULADOR & PAQUETES ---
+        function initSimulator() {
+            const opts = '<option value="">Seleccionar...</option>' + productData.map(p => `<option value="${p.id}">${p.name} ($${p.price})</option>`).join('');
+            document.getElementById('sim-p1').innerHTML = opts; document.getElementById('sim-p2').innerHTML = opts;
+        }
+        function calculatePackage() {
+            const p1 = productData.find(x=>x.id===document.getElementById('sim-p1').value);
+            const p2 = productData.find(x=>x.id===document.getElementById('sim-p2').value);
+            const price = parseFloat(document.getElementById('sim-price').value);
+            if(p1 && p2 && price) {
+                const cost = p1.cost + p2.cost;
+                const util = price - cost;
+                const margin = (util/price)*100;
+                const saving = (p1.price+p2.price) - price;
+                // Update Ticket
+                document.getElementById('res-p1-name').innerText=p1.name; document.getElementById('res-p1-cost').innerText='$'+p1.cost;
+                document.getElementById('res-p2-name').innerText=p2.name; document.getElementById('res-p2-cost').innerText='$'+p2.cost;
+                document.getElementById('res-cost-total').innerText='$'+cost.toFixed(2);
+                document.getElementById('res-reg-price').innerText='$'+(p1.price+p2.price);
+                // Update KPI
+                document.getElementById('res-utility').innerText='$'+util.toFixed(2);
+                document.getElementById('res-margin').innerText=margin.toFixed(1)+'% Margen';
+                document.getElementById('res-savings').innerText='Ahorro: '+(((saving)/(p1.price+p2.price))*100).toFixed(0)+'%';
+            }
+        }
+        function savePackage() {
+            const p1 = productData.find(x=>x.id===document.getElementById('sim-p1').value);
+            const p2 = productData.find(x=>x.id===document.getElementById('sim-p2').value);
+            const price = parseFloat(document.getElementById('sim-price').value);
+            if(p1 && p2 && price) {
+                const pkg = { id: Date.now(), name: `${p1.name} + ${p2.name}`, price: price, margin: ((price - (p1.cost+p2.cost))/price)*100 };
+                const saved = JSON.parse(localStorage.getItem(PACKAGES_KEY) || '[]');
+                saved.push(pkg);
+                localStorage.setItem(PACKAGES_KEY, JSON.stringify(saved));
+                renderSavedPackages();
+            }
+        }
+        function renderSavedPackages() {
+            const saved = JSON.parse(localStorage.getItem(PACKAGES_KEY) || '[]');
+            const list = document.getElementById('saved-packages-list');
+            list.innerHTML = '';
+            if(saved.length === 0) { list.innerHTML = '<li class="text-slate-500 text-xs italic text-center">No hay paquetes guardados.</li>'; return; }
+            saved.forEach(pkg => {
+                const li = document.createElement('li');
+                li.className = 'bg-slate-800 p-3 rounded border border-slate-700 flex justify-between items-center text-sm';
+                li.innerHTML = `<div><div class="font-bold text-white">${pkg.name}</div><div class="text-xs text-emerald-400">$${pkg.price} <span class="text-slate-500">(${pkg.margin.toFixed(0)}% mg)</span></div></div><button onclick="deletePackage(${pkg.id})" class="btn-danger">Borrar</button>`;
+                list.appendChild(li);
+            });
+        }
+        function deletePackage(id) {
+            let saved = JSON.parse(localStorage.getItem(PACKAGES_KEY) || '[]');
+            saved = saved.filter(p => p.id !== id);
+            localStorage.setItem(PACKAGES_KEY, JSON.stringify(saved));
+            renderSavedPackages();
+        }
+
+        function exportFullHTML() {
+            const html = document.documentElement.outerHTML.replace('const savedData = localStorage.getItem(\'sendelaDataFinalV6\');', `const savedData = '${JSON.stringify(productData)}';`);
+            const blob = new Blob([html], {type:'text/html'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Sendela_Hub_v7.html'; a.click();
+        }
+        function exportToCSV() {
+            let csv = "Producto,Costo,Precio\n"; productData.forEach(p => csv += `${p.name},${p.cost},${p.price}\n`);
+            const blob = new Blob([csv], {type:'text/csv'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Sendela_Data.csv'; a.click();
+        }
+    </script>
+</body>
+</html>
